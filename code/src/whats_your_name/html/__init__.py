@@ -48,7 +48,7 @@ file_upload_page = '''
                                 type: 'POST',
                                 data: reader.result,
                                 success: function (data) {
-                                    if (data['faces']) {
+                                    if (data['faces'] && data['faces'].length > 0) {
                                         result.html("Found a match! It's <strong>" + data['faces'].join(', ') + "</strong>")
                                     } else {
                                         result.text("I didn't find a match :/")
