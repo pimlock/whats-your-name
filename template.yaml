@@ -23,17 +23,14 @@ Resources:
       Timeout: 60
       MemorySize: 256
       Policies:
-        - CloudWatchPutMetricPolicy: {}
-        - SNSPublishMessagePolicy:
-          TopicName: WhatsYourName
         - RekognitionNoDataAccessPolicy:
-          CollectionId: !Ref RekognitionCollectionId
+            CollectionId: !Ref RekognitionCollectionId
         - RekognitionReadPolicy:
-          CollectionId: !Ref RekognitionCollectionId
+            CollectionId: !Ref RekognitionCollectionId
         - RekognitionWriteOnlyAccessPolicy:
-          CollectionId: !Ref RekognitionCollectionId
+            CollectionId: !Ref RekognitionCollectionId
         - S3CrudPolicy:
-          BucketName: !Ref FaceImagesBucketName
+            BucketName: !Ref FaceImagesBucketName
       Events:
         get:
           Type: Api
