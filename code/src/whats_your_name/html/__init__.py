@@ -76,6 +76,7 @@ file_upload_page = '''
                 preview.find('img').attr('src', reader.result);
                 preview.removeClass('d-none');
                 result.find('.loading').show();
+                result.find('.name').text('');
 
                 $.ajax({
                     type: 'POST',

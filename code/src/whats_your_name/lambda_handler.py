@@ -23,8 +23,6 @@ class Handler:
         self.config = config
 
     def handle(self, event):
-        logger.info(event)
-
         records = event.get('Records', [])
         if records and records[0].get('eventSource') == 'aws:s3':
             return self._process_s3_event(event)

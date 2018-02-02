@@ -83,6 +83,7 @@ class FaceCollection(object):
     def create_collection(self):
         self.rekognition.create_collection(CollectionId=self.collection_id)
 
+
 class FaceIndexer(object):
 
     def __init__(self, face_collection):
