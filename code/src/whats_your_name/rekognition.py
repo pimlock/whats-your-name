@@ -3,21 +3,39 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class Celebrity(object):
+    def __init__(self, face, raw_json):
+        self.face = face
+        self.raw_json = raw_json
+
+    @property
+    def id(self):
+        return self.raw_json.get('Id')
+
+    @property
+    def name(self):
+        return self.raw_json.get('Name')
+
+    @property
+    def urls(self):
+        return self.raw_json.get('Urls', [])
+
+
 class Face(object):
     def __init__(self, raw_json):
         self.raw_json = raw_json
 
     @property
     def user_id(self):
-        return self.raw_json['Face']['ExternalImageId']
+        return self.raw_json['Face'].get('ExternalImageId')
 
     @property
     def face_id(self):
-        return self.raw_json['Face']['FaceId']
+        return self.raw_json['Face'].get('FaceId')
 
     @property
     def confidence(self):
-        return self.raw_json['Face']['Confidence']
+        return self.raw_json['Face'].get('Confidence')
 
 
 class FaceCollection(object):
@@ -82,6 +100,28 @@ class FaceCollection(object):
 
     def create_collection(self):
         self.rekognition.create_collection(CollectionId=self.collection_id)
+
+
+class CelebritiesDetector(object):
+    def __init__(self, rekognition):
+        self.rekognition = rekognition
+
+    def detect_celebrities_from_image_data(self, image_data):
+        detected_celebrities = []
+        try:
+            response = self.rekognition.recognize_celebrities(
+                Image={'Bytes': image_data}
+            )
+            celebrities = response.get('CelebrityFaces', [])
+            if celebrities:
+                for celebrity_json in celebrities:
+                    detected_celebrities.append(Celebrity(Face(celebrity_json), celebrity_json))
+            logger.info('Found: %s', response)
+        except Exception as e:
+            logger.exception('No celebrities found!')
+            logger.info(type(e))
+
+        return detected_celebrities
 
 
 class FaceIndexer(object):

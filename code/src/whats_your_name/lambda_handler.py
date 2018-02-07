@@ -9,12 +9,13 @@ from pmlocek.common.log import setup_lambda_logging
 from pmlocek.common.s3 import S3ObjectInfo
 from whats_your_name.config import Config
 from whats_your_name.html import file_upload_page
-from whats_your_name.rekognition import FaceIndexer, FaceRecognizer, FaceCollection
+from whats_your_name.rekognition import FaceIndexer, FaceRecognizer, FaceCollection, CelebritiesDetector
 from whats_your_name.sns import AppLinkSender
 
 logger = logging.getLogger(__name__)
 
 _face_collection = None
+_celebrities_detector = None
 
 
 class Handler:
@@ -56,24 +57,50 @@ class Handler:
         return 'https://{}.execute-api.us-east-1.amazonaws.com/Prod'.format(event.get('requestContext').get('apiId'))
 
     def _process_whats_your_name(self, event):
-        face_collection = self._create_face_collection()
-        face_recognizer = FaceRecognizer(face_collection)
-
         image_data = event.get('body', '')
         position = image_data.find('base64,')
         if not image_data or position == -1:
             return {
-                'statusCode': '502',
+                'statusCode': 502,
                 'body': 'Wrong input!'
             }
 
         image_data = base64.b64decode(image_data[position + 7:])
+        response = self._recognize_faces(image_data)
+        if not response:
+            response = self._recognize_celebrities(image_data)
+        if not response:
+            response = self._create_json_response({})
+
+        return response
+
+    def _recognize_faces(self, image_data):
+        face_collection = self._create_face_collection()
+        face_recognizer = FaceRecognizer(face_collection)
+
         recognized_faces = face_recognizer.recognize_face_from_image(image_data)
+        if recognized_faces:
+            return self._create_json_response({
+                'faces': [{
+                    'face_id': face.user_id
+                } for face in recognized_faces]
+            })
+
+    def _recognize_celebrities(self, image_data):
+        celebrities = self._create_celebrities_detector().detect_celebrities_from_image_data(image_data)
+        if celebrities:
+            return self._create_json_response({
+                'celebrities': [{
+                    'face_id': celebrity.id,
+                    'name': celebrity.name,
+                    'urls': celebrity.urls
+                } for celebrity in celebrities]
+            })
+
+    def _create_json_response(self, body_dict, status_code=200):
         return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'faces': [face.user_id for face in recognized_faces]
-            }, separators=(',', ':')),
+            'statusCode': status_code,
+            'body': json.dumps(body_dict, separators=(',', ':')),
             'headers': {
                 'Content-Type': 'application/json',
             }
@@ -82,8 +109,7 @@ class Handler:
     def _create_face_collection(self):
         global _face_collection
         if _face_collection is None:
-            rekognition = boto3.client('rekognition')
-            _face_collection = FaceCollection(rekognition, self.config.face_collection_id)
+            _face_collection = FaceCollection(boto3.client('rekognition'), self.config.face_collection_id)
             try:
                 _face_collection.create_collection()
             except ClientError as e:
@@ -92,12 +118,16 @@ class Handler:
 
         return _face_collection
 
-    def _process_website(self, event):
-        html = file_upload_page \
-            .replace('<%APP_URL%>', self._app_url(event))
+    def _create_celebrities_detector(self):
+        global _celebrities_detector
+        if _celebrities_detector is None:
+            _celebrities_detector = CelebritiesDetector(boto3.client('rekognition'))
 
+        return _celebrities_detector
+
+    def _process_website(self, event):
         return {
-            'body': html,
+            'body': file_upload_page,
             'statusCode': 200,
             'headers': {
                 'Content-Type': 'text/html',

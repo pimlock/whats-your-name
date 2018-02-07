@@ -84,11 +84,37 @@ file_upload_page = '''
                     success: function (data) {
                         result.find('.loading').hide();
 
-                        var name = result.find('.name');
+                        var html = '';
                         if (data['faces'] && data['faces'].length > 0) {
-                            name.html("Found a match! It's <strong>" + data['faces'].join(', ') + "</strong>")
+                            html += "<div>Found a match! <ul>";
+                            $.each(data['faces'], function(i, face) {
+                                html += "<li><strong>" + face['face_id'] + "</strong></li>"
+                            });
+                            html += "</ul></div>";
+                        }
+
+                        if (data['celebrities'] && data['celebrities'].length > 0) {
+                            $.each(data['celebrities'], function(i, celebrity) {
+                                html += "<div><strong>" + celebrity['name'] + "</strong>";
+                                if (celebrity['urls'] && celebrity['urls'].length > 0) {
+                                    html += ". Find out more: <ul>";
+                                    $.each(celebrity['urls'], function(i, url) {
+                                        if (!url.startsWith('http')) {
+                                            url = 'http://' + url;
+                                        }
+                                        html += "<li><a href='" + url + "' target='_blank'>" + url + "</a></li>";
+                                    });
+                                    html += "</ul>";
+                                }
+                                html += "</div>"
+                            });
+                        }
+
+                        var name = result.find('.name');
+                        if (html === '') {
+                            name.text("I didn't find a match :/");
                         } else {
-                            name.text("I didn't find a match :/")
+                            name.html(html);
                         }
                     },
                     error: function() {

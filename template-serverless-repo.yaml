@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: App that tells you name of the person from the picture.
+
+Parameters:
+  FaceImagesBucketName:
+    Type: String
+    Description: Bucket to which images with faces to index will be uploaded (the bucket cannot already exist!)
+    Default: whats-your-name-bucket
+  RekognitionCollectionId:
+    Type: String
+    Description: ID of collection in Amazon Rekognition that will store face index
+    Default: whats-your-name-collection
+
+Resources:
+  WhatsYourNameFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Heart of the app, it handles indexing and detecting faces.
+      Handler: whats_your_name.lambda_handler.main
+      Runtime: python3.6
+      CodeUri: s3://pimlock-serverlessrepo-code/whats-your-name/whats-your-name-package.zip
+      Timeout: 60
+      MemorySize: 256
+      Policies:
+        - RekognitionNoDataAccessPolicy:
+            CollectionId: !Ref RekognitionCollectionId
+        - RekognitionReadPolicy:
+            CollectionId: !Ref RekognitionCollectionId
+        - RekognitionWriteOnlyAccessPolicy:
+            CollectionId: !Ref RekognitionCollectionId
+        - S3CrudPolicy:
+            BucketName: !Ref FaceImagesBucketName
+      Events:
+        get:
+          Type: Api
+          Properties:
+            Path: /
+            Method: get
+        post:
+          Type: Api
+          Properties:
+            Path: /
+            Method: post
+        upload:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: FacesBucket
+            Events: s3:ObjectCreated:*
+      Environment:
+        Variables:
+          REKOGNITION_COLLECTION_ID: !Ref RekognitionCollectionId
+          FACES_BUCKET_NAME: !Ref FaceImagesBucketName
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn:
+          Fn::GetAtt: [WhatsYourNameFunctionDLQ, Arn]
+
+  FacesBucket:
+      Type: AWS::S3::Bucket
+      Metadata:
+        Description: Bucket to which images with faces to index will be uploaded (the bucket cannot already exist!)
+      Properties:
+        BucketName: !Ref FaceImagesBucketName
+
+  WhatsYourNameFunctionDLQ:
+    Type: AWS::SQS::Queue
+
+Outputs:
+  ServerUrl:
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod
+    Description: The url of the app
